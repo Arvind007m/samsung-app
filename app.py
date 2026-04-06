@@ -8,7 +8,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(SCRIPT_DIR, "models_v2")
 
 st.set_page_config(
-    page_title="Microservice Performance AI v2",
+    page_title="Microservice Performance AI",
     page_icon="⚡",
     layout="centered",
     initial_sidebar_state="collapsed"
@@ -49,24 +49,6 @@ st.markdown("""
         padding-bottom: 0.5rem;
         border-bottom: 2px solid #333;
         text-align: center;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border-radius: 12px;
-        padding: 1.2rem;
-        border: 1px solid #333;
-        margin: 0.5rem 0;
-        text-align: center;
-    }
-    .metric-label {
-        font-size: 0.85rem;
-        color: #aaa;
-        margin-bottom: 0.3rem;
-    }
-    .metric-value {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #fff;
     }
     .framework-box {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -113,34 +95,6 @@ st.markdown("""
         background: linear-gradient(90deg, transparent, #667eea, transparent);
         margin: 2rem 0;
     }
-    .predicted-metric {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border-radius: 12px;
-        padding: 1.5rem 1rem;
-        border: 1px solid #444;
-        text-align: center;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.15);
-        transition: all 0.3s ease;
-    }
-    .predicted-metric:hover {
-        border-color: #667eea;
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        transform: translateY(-3px);
-    }
-    .predicted-metric-label {
-        font-size: 0.9rem;
-        color: #aaa;
-        margin-bottom: 0.5rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    .predicted-metric-value {
-        font-size: 1.8rem;
-        font-weight: 700;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
     .info-box {
         background: rgba(102, 126, 234, 0.1);
         border: 1px solid rgba(102, 126, 234, 0.3);
@@ -153,7 +107,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<h1 class="main-header">Microservice Performance Predictor</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">AI-powered performance prediction and framework recommendation</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">AI-powered framework recommendation</p>', unsafe_allow_html=True)
 
 st.markdown('<p class="section-title">Load Configuration</p>', unsafe_allow_html=True)
 
@@ -232,12 +186,6 @@ with col2:
 
 st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-col1, col2 = st.columns(2)
-with col1:
-    predict_perf_btn = st.button("Predict Performance (Boot)", use_container_width=True)
-with col2:
-    predict_webflux_btn = st.button("Predict Performance (WebFlux)", use_container_width=True)
-
 recommend_btn = st.button("Recommend Best Framework", use_container_width=True)
 
 def predict_performance(framework_name):
@@ -270,66 +218,6 @@ def predict_performance(framework_name):
     predictions = np.maximum(predictions, min_values)
     
     return predictions
-
-def display_predictions(predictions, framework_name):
-    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-    st.markdown(f"<h3 style='text-align: center; margin-bottom: 1.5rem;'>Predicted Performance - {framework_name.upper()}</h3>", unsafe_allow_html=True)
-    
-    metrics_display = [
-        ("Response Time", f"{predictions[0]:.1f} ms"),
-        ("P95 Latency", f"{predictions[1]:.1f} ms"),
-        ("P99 Latency", f"{predictions[2]:.1f} ms"),
-        ("Throughput", f"{predictions[3]:.0f} rps"),
-        ("Error Rate", f"{predictions[4]:.2f}%"),
-        ("CPU Usage", f"{predictions[5]:.2f}"),
-        ("Memory", f"{predictions[6]:.0f} MB"),
-        ("Latency", f"{predictions[7]:.1f} ms"),
-        ("Timeouts", f"{predictions[8]:.0f}"),
-    ]
-    
-    row1 = st.columns(3)
-    for i, col in enumerate(row1):
-        with col:
-            st.markdown(f"""
-            <div class="predicted-metric">
-                <p class="predicted-metric-label">{metrics_display[i][0]}</p>
-                <p class="predicted-metric-value">{metrics_display[i][1]}</p>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    row2 = st.columns(3)
-    for i, col in enumerate(row2):
-        with col:
-            st.markdown(f"""
-            <div class="predicted-metric">
-                <p class="predicted-metric-label">{metrics_display[i+3][0]}</p>
-                <p class="predicted-metric-value">{metrics_display[i+3][1]}</p>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    row3 = st.columns(3)
-    for i, col in enumerate(row3):
-        with col:
-            st.markdown(f"""
-            <div class="predicted-metric">
-                <p class="predicted-metric-label">{metrics_display[i+6][0]}</p>
-                <p class="predicted-metric-value">{metrics_display[i+6][1]}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-if predict_perf_btn:
-    with st.spinner("Predicting performance for Spring Boot..."):
-        predictions = predict_performance("boot")
-    display_predictions(predictions, "Spring Boot")
-
-if predict_webflux_btn:
-    with st.spinner("Predicting performance for WebFlux..."):
-        predictions = predict_performance("webflux")
-    display_predictions(predictions, "WebFlux")
 
 if recommend_btn:
     with st.spinner("Analyzing which framework best matches your targets..."):
@@ -377,85 +265,14 @@ if recommend_btn:
         <p class="framework-label">Recommended Framework</p>
         <p class="framework-name">{framework_name}</p>
         <p class="framework-desc">{desc}</p>
-        <p style="color: #667eea; font-size: 0.9rem; margin-top: 0.5rem;">Match Score: {match_score:.1f}%</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    with st.expander("Compare Predicted vs Target Metrics", expanded=True):
-        metric_names = ['Avg Response Time(ms)', 'P95', 'P99', 'Throughput(rps)',
-                       'Error Rate', 'CPU Usage', 'Memory', 'Latency(ms)', 'Request Timeouts']
-        
-        comparison_data = {
-            'Metric': ['Avg Response Time', 'Throughput', 'Error Rate', 'CPU Usage', 'Memory', 'Latency'],
-            'Your Target': [f"{target_response_time} ms", f"{target_throughput} rps", f"{target_error_rate}%", 
-                           f"{target_cpu:.2f}", f"{target_memory} MB", f"{target_latency} ms"],
-            'Boot Predicted': [f"{boot_pred[0]:.1f} ms", f"{boot_pred[3]:.0f} rps", f"{boot_pred[4]:.2f}%",
-                              f"{boot_pred[5]:.2f}", f"{boot_pred[6]:.0f} MB", f"{boot_pred[7]:.1f} ms"],
-            'WebFlux Predicted': [f"{webflux_pred[0]:.1f} ms", f"{webflux_pred[3]:.0f} rps", f"{webflux_pred[4]:.2f}%",
-                                 f"{webflux_pred[5]:.2f}", f"{webflux_pred[6]:.0f} MB", f"{webflux_pred[7]:.1f} ms"]
-        }
-        
-        comparison_df = pd.DataFrame(comparison_data)
-        st.dataframe(comparison_df, use_container_width=True, hide_index=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("**Full Predicted Metrics:**")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**Spring Boot**")
-            boot_df = pd.DataFrame([boot_pred], columns=metric_names)
-            st.dataframe(boot_df.T.rename(columns={0: 'Value'}), use_container_width=True)
-        
-        with col2:
-            st.markdown("**WebFlux**")
-            webflux_df = pd.DataFrame([webflux_pred], columns=metric_names)
-            st.dataframe(webflux_df.T.rename(columns={0: 'Value'}), use_container_width=True)
-
-if not (predict_perf_btn or predict_webflux_btn or recommend_btn):
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        <div class="metric-card">
-            <p class="metric-label">Step 1</p>
-            <p class="metric-value">Configure</p>
-            <p style="color: #888; font-size: 0.9rem;">Set load parameters</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="metric-card">
-            <p class="metric-label">Step 2</p>
-            <p class="metric-value">Predict</p>
-            <p style="color: #888; font-size: 0.9rem;">Get performance metrics</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div class="metric-card">
-            <p class="metric-label">Step 3</p>
-            <p class="metric-value">Compare</p>
-            <p style="color: #888; font-size: 0.9rem;">Choose best framework</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("""
-    <div class="info-box">
-        <p style="color: #667eea; margin: 0;">This model is generalized and works for any microservice type.</p>
+        <p style="color: rgba(255,255,255,0.9); font-size: 0.9rem; margin-top: 0.5rem;">Match Score: {match_score:.1f}%</p>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown("---")
 st.markdown(
     "<p style='text-align: center; color: #666; font-size: 0.85rem;'>"
-    "Powered by XGBoost ML Models | Generalized Microservice Performance Prediction"
+    "Powered by XGBoost ML Model"
     "</p>",
     unsafe_allow_html=True
 )
