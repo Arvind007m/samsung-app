@@ -88,13 +88,16 @@ Analysis:
 
 Recommendation: {rec_name} (Match Score: {match_score:.1f}%)
 
-Write 2-3 sentences explaining why {rec_name} is recommended. Explain which metrics are closer to the user's target requirements and why this makes {rec_name} the better choice.
+Write 3-4 bullet points explaining why {rec_name} is recommended:
+- Each bullet should explain one reason
+- Mention which metrics are closer to the user's targets
+- Keep each bullet brief and clear
 
-IMPORTANT: Do NOT include any numbers in your response. Use comparative language like "closer to target", "better aligned", "more suitable" instead of specific values."""
+IMPORTANT: Do NOT include any numbers. Use comparative language like "closer to target", "better aligned" instead."""
 
         chat_completion = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "You are a microservice expert. Analyze the metrics and explain the recommendation. Do NOT include any numbers - use comparative descriptions like 'closer to target', 'better match', 'more aligned'. Be confident and concise."},
+                {"role": "system", "content": "You are a microservice expert. Respond ONLY in bullet points (use • or -). Do NOT include any numbers. Keep each bullet brief. Be confident."},
                 {"role": "user", "content": prompt}
             ],
             model="llama-3.3-70b-versatile",
@@ -415,13 +418,26 @@ if recommend_btn:
             )
         
         if ai_description:
-            st.markdown("""
+            # Convert bullet points to HTML list
+            lines = ai_description.strip().split('\n')
+            bullets_html = ""
+            for line in lines:
+                line = line.strip()
+                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                    bullet_text = line.lstrip('•-* ').strip()
+                    bullets_html += f"<li style='margin-bottom: 0.5rem;'>{bullet_text}</li>"
+                elif line:
+                    bullets_html += f"<li style='margin-bottom: 0.5rem;'>{line}</li>"
+            
+            st.markdown(f"""
             <div style="background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); 
                         border-radius: 10px; padding: 1.2rem; margin-top: 1rem;">
-                <p style="color: #667eea; font-weight: 600; margin-bottom: 0.5rem;">🤖 AI Analysis</p>
-                <p style="color: #ccc; font-size: 0.95rem; line-height: 1.6;">{}</p>
+                <p style="color: #667eea; font-weight: 600; margin-bottom: 0.8rem;">🤖 AI Analysis</p>
+                <ul style="color: #ccc; font-size: 0.95rem; line-height: 1.6; margin: 0; padding-left: 1.2rem;">
+                    {bullets_html}
+                </ul>
             </div>
-            """.format(ai_description), unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
     else:
         st.markdown("""
         <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); 
