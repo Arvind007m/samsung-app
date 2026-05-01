@@ -25,3 +25,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Streamlit secrets (contains API keys)
+.streamlit/secrets.toml

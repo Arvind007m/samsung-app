@@ -3,9 +3,108 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
+from groq import Groq
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(SCRIPT_DIR, "models_v2")
+
+def get_api_key():
+    """Get API key from secrets (cloud) or session state (local)"""
+    # Try Streamlit secrets first (for cloud deployment)
+    try:
+        return st.secrets["GROQ_API_KEY"]
+    except:
+        pass
+    # Fall back to session state (for local testing)
+    return st.session_state.get('groq_api_key', '')
+
+def get_ai_description(framework_name, match_score, boot_pred, webflux_pred, targets, tps, threadpool):
+    api_key = get_api_key()
+    if not api_key:
+        return None
+    
+    try:
+        client = Groq(api_key=api_key)
+        
+        # Determine which metrics are closer to user targets
+        metrics_closer = []
+        
+        boot_lat_diff = abs(boot_pred[7] - targets['latency'])
+        webflux_lat_diff = abs(webflux_pred[7] - targets['latency'])
+        metrics_closer.append(("Spring Boot" if boot_lat_diff < webflux_lat_diff else "WebFlux", "latency"))
+        
+        boot_tp_diff = abs(boot_pred[3] - targets['throughput'])
+        webflux_tp_diff = abs(webflux_pred[3] - targets['throughput'])
+        metrics_closer.append(("Spring Boot" if boot_tp_diff < webflux_tp_diff else "WebFlux", "throughput"))
+        
+        boot_rt_diff = abs(boot_pred[0] - targets['response_time'])
+        webflux_rt_diff = abs(webflux_pred[0] - targets['response_time'])
+        metrics_closer.append(("Spring Boot" if boot_rt_diff < webflux_rt_diff else "WebFlux", "response time"))
+        
+        boot_cpu_diff = abs(boot_pred[5] - targets['cpu'])
+        webflux_cpu_diff = abs(webflux_pred[5] - targets['cpu'])
+        metrics_closer.append(("Spring Boot" if boot_cpu_diff < webflux_cpu_diff else "WebFlux", "CPU usage"))
+        
+        boot_mem_diff = abs(boot_pred[6] - targets['memory'])
+        webflux_mem_diff = abs(webflux_pred[6] - targets['memory'])
+        metrics_closer.append(("Spring Boot" if boot_mem_diff < webflux_mem_diff else "WebFlux", "memory usage"))
+        
+        rec_name = "Spring Boot" if framework_name == "boot" else "WebFlux"
+        other_name = "WebFlux" if framework_name == "boot" else "Spring Boot"
+        closer_metrics = [m[1] for m in metrics_closer if m[0] == rec_name]
+        other_closer = [m[1] for m in metrics_closer if m[0] != rec_name]
+        
+        prompt = f"""Analyze this framework recommendation and explain why {rec_name} is the better choice.
+
+Configuration: {tps} TPS, {threadpool} thread pool
+
+User's Target Requirements:
+- Latency: {targets['latency']} ms
+- Throughput: {targets['throughput']} rps
+- Response Time: {targets['response_time']} ms
+- Error Rate: {targets['error_rate']}%
+- CPU Usage: {targets['cpu']}
+- Memory: {targets['memory']} MB
+
+Spring Boot Predicted:
+- Latency: {boot_pred[7]:.1f} ms
+- Throughput: {boot_pred[3]:.0f} rps
+- Response Time: {boot_pred[0]:.1f} ms
+- Error Rate: {boot_pred[4]:.2f}%
+- CPU Usage: {boot_pred[5]:.2f}
+- Memory: {boot_pred[6]:.0f} MB
+
+WebFlux Predicted:
+- Latency: {webflux_pred[7]:.1f} ms
+- Throughput: {webflux_pred[3]:.0f} rps
+- Response Time: {webflux_pred[0]:.1f} ms
+- Error Rate: {webflux_pred[4]:.2f}%
+- CPU Usage: {webflux_pred[5]:.2f}
+- Memory: {webflux_pred[6]:.0f} MB
+
+Analysis:
+- {rec_name} is closer to target for: {', '.join(closer_metrics) if closer_metrics else 'none'}
+- {other_name} is closer to target for: {', '.join(other_closer) if other_closer else 'none'}
+
+Recommendation: {rec_name} (Match Score: {match_score:.1f}%)
+
+Write 2-3 sentences explaining why {rec_name} is recommended. Explain which metrics are closer to the user's target requirements and why this makes {rec_name} the better choice.
+
+IMPORTANT: Do NOT include any numbers in your response. Use comparative language like "closer to target", "better aligned", "more suitable" instead of specific values."""
+
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a microservice expert. Analyze the metrics and explain the recommendation. Do NOT include any numbers - use comparative descriptions like 'closer to target', 'better match', 'more aligned'. Be confident and concise."},
+                {"role": "user", "content": prompt}
+            ],
+            model="llama-3.3-70b-versatile",
+            temperature=0.7,
+            max_tokens=200
+        )
+        
+        return chat_completion.choices[0].message.content
+    except Exception as e:
+        return f"AI Analysis unavailable: {str(e)}"
 
 st.set_page_config(
     page_title="Microservice Performance AI",
@@ -108,6 +207,34 @@ st.markdown("""
 
 st.markdown('<h1 class="main-header">Microservice Performance Predictor</h1>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">AI-powered framework recommendation</p>', unsafe_allow_html=True)
+
+with st.sidebar:
+    st.markdown("### AI Settings")
+    # Check if API key is configured in secrets
+    has_secret_key = False
+    try:
+        if st.secrets.get("GROQ_API_KEY"):
+            has_secret_key = True
+            st.success("API Key configured!")
+    except:
+        pass
+    
+    if not has_secret_key:
+        groq_key = st.text_input(
+            "Groq API Key",
+            type="password",
+            help="Get free API key from console.groq.com"
+        )
+        if groq_key:
+            st.session_state['groq_api_key'] = groq_key
+            st.success("API Key saved!")
+        
+        st.markdown("---")
+        st.markdown("**How to get API key:**")
+        st.markdown("1. Go to [console.groq.com](https://console.groq.com)")
+        st.markdown("2. Sign up / Log in")
+        st.markdown("3. Create API key")
+        st.markdown("4. Paste above")
 
 st.markdown('<p class="section-title">Load Configuration</p>', unsafe_allow_html=True)
 
@@ -224,15 +351,25 @@ if recommend_btn:
         boot_pred = predict_performance("boot")
         webflux_pred = predict_performance("webflux")
         
-        def calculate_distance(pred, targets):
-            distances = []
-            distances.append(abs(pred[0] - targets['response_time']) / max(targets['response_time'], 1))
-            distances.append(abs(pred[3] - targets['throughput']) / max(targets['throughput'], 1))
-            distances.append(abs(pred[4] - targets['error_rate']) / max(targets['error_rate'], 0.1))
-            distances.append(abs(pred[5] - targets['cpu']) / max(targets['cpu'], 0.01))
-            distances.append(abs(pred[6] - targets['memory']) / max(targets['memory'], 1))
-            distances.append(abs(pred[7] - targets['latency']) / max(targets['latency'], 1))
-            return sum(distances) / len(distances)
+        def calculate_weighted_score(pred, targets):
+            weights = {
+                'latency': 0.25,
+                'response_time': 0.20,
+                'throughput': 0.20,
+                'error_rate': 0.15,
+                'cpu': 0.10,
+                'memory': 0.10
+            }
+            
+            weighted_distance = 0
+            weighted_distance += weights['response_time'] * abs(pred[0] - targets['response_time']) / max(targets['response_time'], 1)
+            weighted_distance += weights['throughput'] * abs(pred[3] - targets['throughput']) / max(targets['throughput'], 1)
+            weighted_distance += weights['error_rate'] * abs(pred[4] - targets['error_rate']) / max(targets['error_rate'], 0.1)
+            weighted_distance += weights['cpu'] * abs(pred[5] - targets['cpu']) / max(targets['cpu'], 0.01)
+            weighted_distance += weights['memory'] * abs(pred[6] - targets['memory']) / max(targets['memory'], 1)
+            weighted_distance += weights['latency'] * abs(pred[7] - targets['latency']) / max(targets['latency'], 1)
+            
+            return weighted_distance
         
         targets = {
             'response_time': target_response_time,
@@ -243,15 +380,15 @@ if recommend_btn:
             'latency': target_latency
         }
         
-        boot_distance = calculate_distance(boot_pred, targets)
-        webflux_distance = calculate_distance(webflux_pred, targets)
+        boot_score = calculate_weighted_score(boot_pred, targets)
+        webflux_score = calculate_weighted_score(webflux_pred, targets)
         
-        if boot_distance < webflux_distance:
+        if boot_score < webflux_score:
             framework_name = "boot"
-            match_score = (1 - boot_distance / (boot_distance + webflux_distance)) * 100
+            match_score = (1 - boot_score / (boot_score + webflux_score)) * 100
         else:
             framework_name = "webflux"
-            match_score = (1 - webflux_distance / (boot_distance + webflux_distance)) * 100
+            match_score = (1 - webflux_score / (boot_score + webflux_score)) * 100
     
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     
@@ -268,6 +405,32 @@ if recommend_btn:
         <p style="color: rgba(255,255,255,0.9); font-size: 0.9rem; margin-top: 0.5rem;">Match Score: {match_score:.1f}%</p>
     </div>
     """, unsafe_allow_html=True)
+    
+    if get_api_key():
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.spinner("Generating AI analysis..."):
+            ai_description = get_ai_description(
+                framework_name, match_score, boot_pred, webflux_pred, 
+                targets, tps, threadpool
+            )
+        
+        if ai_description:
+            st.markdown("""
+            <div style="background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); 
+                        border-radius: 10px; padding: 1.2rem; margin-top: 1rem;">
+                <p style="color: #667eea; font-weight: 600; margin-bottom: 0.5rem;">🤖 AI Analysis</p>
+                <p style="color: #ccc; font-size: 0.95rem; line-height: 1.6;">{}</p>
+            </div>
+            """.format(ai_description), unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); 
+                    border-radius: 10px; padding: 1rem; margin-top: 1rem; text-align: center;">
+            <p style="color: #ffc107; font-size: 0.9rem; margin: 0;">
+                💡 Add Groq API key in sidebar for AI-powered analysis
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
 st.markdown("---")
 st.markdown(
